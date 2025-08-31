@@ -9,7 +9,7 @@ import json
 import os
 from . import obsidian
 
-api_key = "c5195e381349f480a07a643733311a0d7524b585478d85edb1fc3e50d078bf36"
+api_key = os.getenv("OBSIDIAN_API_KEY")
 obsidian_host = os.getenv("OBSIDIAN_HOST", "127.0.0.1")
 
 if api_key == "":
@@ -27,7 +27,7 @@ class ToolHandler():
 
     def run_tool(self, args: dict) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
         raise NotImplementedError()
-    
+
 class ListFilesInVaultToolHandler(ToolHandler):
     def __init__(self):
         super().__init__(TOOL_LIST_FILES_IN_VAULT)
@@ -54,7 +54,7 @@ class ListFilesInVaultToolHandler(ToolHandler):
                 text=json.dumps(files, indent=2)
             )
         ]
-    
+
 class ListFilesInDirToolHandler(ToolHandler):
     def __init__(self):
         super().__init__(TOOL_LIST_FILES_IN_DIR)
@@ -90,7 +90,7 @@ class ListFilesInDirToolHandler(ToolHandler):
                 text=json.dumps(files, indent=2)
             )
         ]
-    
+
 class GetFileContentsToolHandler(ToolHandler):
     def __init__(self):
         super().__init__("obsidian_get_file_contents")
@@ -126,7 +126,7 @@ class GetFileContentsToolHandler(ToolHandler):
                 text=json.dumps(content, indent=2)
             )
         ]
-    
+
 class SearchToolHandler(ToolHandler):
     def __init__(self):
         super().__init__("obsidian_simple_search")
@@ -134,7 +134,7 @@ class SearchToolHandler(ToolHandler):
     def get_tool_description(self):
         return Tool(
             name=self.name,
-            description="""Simple search for documents matching a specified text query across all files in the vault. 
+            description="""Simple search for documents matching a specified text query across all files in the vault.
             Use this tool when you want to do a simple text search""",
             inputSchema={
                 "type": "object",
@@ -158,10 +158,10 @@ class SearchToolHandler(ToolHandler):
             raise RuntimeError("query argument missing in arguments")
 
         context_length = args.get("context_length", 100)
-        
+
         api = obsidian.Obsidian(api_key=api_key, host=obsidian_host)
         results = api.search(args["query"], context_length)
-        
+
         formatted_results = []
         for result in results:
             formatted_matches = []
@@ -170,12 +170,12 @@ class SearchToolHandler(ToolHandler):
                 match_pos = match.get('match', {})
                 start = match_pos.get('start', 0)
                 end = match_pos.get('end', 0)
-                
+
                 formatted_matches.append({
                     'context': context,
                     'match_position': {'start': start, 'end': end}
                 })
-                
+
             formatted_results.append({
                 'filename': result.get('filename', ''),
                 'score': result.get('score', 0),
@@ -188,7 +188,7 @@ class SearchToolHandler(ToolHandler):
                 text=json.dumps(formatted_results, indent=2)
             )
         ]
-    
+
 class AppendContentToolHandler(ToolHandler):
    def __init__(self):
        super().__init__("obsidian_append_content")
@@ -227,7 +227,7 @@ class AppendContentToolHandler(ToolHandler):
                text=f"Successfully appended content to {args['filepath']}"
            )
        ]
-   
+
 class PatchContentToolHandler(ToolHandler):
    def __init__(self):
        super().__init__("obsidian_patch_content")
@@ -255,7 +255,7 @@ class PatchContentToolHandler(ToolHandler):
                        "enum": ["heading", "block", "frontmatter"]
                    },
                    "target": {
-                       "type": "string", 
+                       "type": "string",
                        "description": "Target identifier (heading path, block reference, or frontmatter field)"
                    },
                    "content": {
@@ -286,7 +286,7 @@ class PatchContentToolHandler(ToolHandler):
                text=f"Successfully patched content in {args['filepath']}"
            )
        ]
-       
+
 class PutContentToolHandler(ToolHandler):
    def __init__(self):
        super().__init__("obsidian_put_content")
@@ -325,7 +325,7 @@ class PutContentToolHandler(ToolHandler):
                text=f"Successfully uploaded content to {args['filepath']}"
            )
        ]
-   
+
 
 class DeleteFileToolHandler(ToolHandler):
    def __init__(self):
@@ -356,7 +356,7 @@ class DeleteFileToolHandler(ToolHandler):
    def run_tool(self, args: dict) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
        if "filepath" not in args:
            raise RuntimeError("filepath argument missing in arguments")
-       
+
        if not args.get("confirm", False):
            raise RuntimeError("confirm must be set to true to delete a file")
 
@@ -369,7 +369,7 @@ class DeleteFileToolHandler(ToolHandler):
                text=f"Successfully deleted {args['filepath']}"
            )
        ]
-   
+
 class ComplexSearchToolHandler(ToolHandler):
    def __init__(self):
        super().__init__("obsidian_complex_search")
@@ -377,7 +377,7 @@ class ComplexSearchToolHandler(ToolHandler):
    def get_tool_description(self):
        return Tool(
            name=self.name,
-           description="""Complex search for documents using a JsonLogic query. 
+           description="""Complex search for documents using a JsonLogic query.
            Supports standard JsonLogic operators plus 'glob' and 'regexp' for pattern matching. Results must be non-falsy.
 
            Use this tool when you want to do a complex search, e.g. for all documents with certain tags etc.
@@ -508,7 +508,7 @@ class PeriodicNotesToolHandler(ToolHandler):
         valid_periods = ["daily", "weekly", "monthly", "quarterly", "yearly"]
         if period not in valid_periods:
             raise RuntimeError(f"Invalid period: {period}. Must be one of: {', '.join(valid_periods)}")
-        
+
         type = args["type"] if "type" in args else "content"
         valid_types = ["content", "metadata"]
         if type not in valid_types:
@@ -523,7 +523,7 @@ class PeriodicNotesToolHandler(ToolHandler):
                 text=content
             )
         ]
-        
+
 class RecentPeriodicNotesToolHandler(ToolHandler):
     def __init__(self):
         super().__init__("obsidian_get_recent_periodic_notes")
@@ -569,7 +569,7 @@ class RecentPeriodicNotesToolHandler(ToolHandler):
         limit = args.get("limit", 5)
         if not isinstance(limit, int) or limit < 1:
             raise RuntimeError(f"Invalid limit: {limit}. Must be a positive integer")
-            
+
         include_content = args.get("include_content", False)
         if not isinstance(include_content, bool):
             raise RuntimeError(f"Invalid include_content: {include_content}. Must be a boolean")
@@ -583,7 +583,7 @@ class RecentPeriodicNotesToolHandler(ToolHandler):
                 text=json.dumps(results, indent=2)
             )
         ]
-        
+
 class RecentChangesToolHandler(ToolHandler):
     def __init__(self):
         super().__init__("obsidian_get_recent_changes")
@@ -616,7 +616,7 @@ class RecentChangesToolHandler(ToolHandler):
         limit = args.get("limit", 10)
         if not isinstance(limit, int) or limit < 1:
             raise RuntimeError(f"Invalid limit: {limit}. Must be a positive integer")
-            
+
         days = args.get("days", 90)
         if not isinstance(days, int) or days < 1:
             raise RuntimeError(f"Invalid days: {days}. Must be a positive integer")

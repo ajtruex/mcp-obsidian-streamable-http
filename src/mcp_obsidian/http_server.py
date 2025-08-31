@@ -1,147 +1,378 @@
-from __future__ import annotations
+# import os
+# import logging
+# from typing import Any, Callable
+# import uvicorn
+
+# from dotenv import load_dotenv
+# from mcp.server.fastmcp import FastMCP
+# from starlette.middleware.cors import CORSMiddleware
 
 import os
 import logging
-from typing import Any, Callable
+import uvicorn
+from typing import Any
+import requests
+import urllib.parse
 
-from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from starlette.middleware.cors import CORSMiddleware
 
-from . import tools
+from mcp_obsidian import tools
+from mcp_obsidian.tools import (
+    ListFilesInVaultToolHandler,
+    ListFilesInDirToolHandler,
+    GetFileContentsToolHandler,
+    SearchToolHandler,
+    AppendContentToolHandler,
+    PatchContentToolHandler,
+    PutContentToolHandler,
+    DeleteFileToolHandler,
+    ComplexSearchToolHandler,
+    BatchGetFileContentsToolHandler,
+    PeriodicNotesToolHandler,
+    RecentPeriodicNotesToolHandler,
+    RecentChangesToolHandler
+)
 
-load_dotenv()
+# Set up logger
 logger = logging.getLogger("mcp-obsidian")
 
+mcp = FastMCP(name="MCP Obsidian")
 
-def _ensure_env() -> None:
-    api_key = os.getenv("OBSIDIAN_API_KEY")
-    if not api_key:
-        raise ValueError(
-            f"OBSIDIAN_API_KEY environment variable required. Working directory: {os.getcwd()}"
-        )
+# Create instances of all tool handlers
+list_files_handler = ListFilesInVaultToolHandler()
+list_dir_handler = ListFilesInDirToolHandler()
+get_contents_handler = GetFileContentsToolHandler()
+search_handler = SearchToolHandler()
+append_handler = AppendContentToolHandler()
+patch_handler = PatchContentToolHandler()
+put_handler = PutContentToolHandler()
+delete_handler = DeleteFileToolHandler()
+complex_search_handler = ComplexSearchToolHandler()
+batch_get_handler = BatchGetFileContentsToolHandler()
+periodic_notes_handler = PeriodicNotesToolHandler()
+recent_periodic_handler = RecentPeriodicNotesToolHandler()
+recent_changes_handler = RecentChangesToolHandler()
 
+@mcp.tool()
+def list_files_in_vault(**kwargs) -> Any:
+    """List all files in the Obsidian vault."""
+    return list_files_handler.run_tool(kwargs)
 
-def _to_schema_dict(schema: Any) -> dict[str, Any]:
-    """
-    Convert various schema representations to a plain dict.
-    Supports pydantic models (model_dump), plain dicts, or None.
-    """
-    if schema is None:
-        return {}
-    # pydantic v2 BaseModel
-    if hasattr(schema, "model_dump"):
-        try:
-            return schema.model_dump(by_alias=True)  # type: ignore[call-arg]
-        except Exception:
-            return schema.model_dump()  # type: ignore
-    if isinstance(schema, dict):
-        return schema
-    # Fallback: try attribute access common on typed classes
-    props = getattr(schema, "properties", None)
-    req = getattr(schema, "required", None)
-    out: dict[str, Any] = {}
-    if props is not None:
-        out["properties"] = props
-    if req is not None:
-        out["required"] = req
-    return out
+@mcp.tool()
+def list_files_in_dir(**kwargs) -> Any:
+    """List files in a specific directory."""
+    return list_dir_handler.run_tool(kwargs)
 
+@mcp.tool()
+def get_file_contents(**kwargs) -> Any:
+    """Get the contents of a file."""
+    return get_contents_handler.run_tool(kwargs)
 
-def _register_tools(mcp: FastMCP) -> None:
-    """
-    Register wrappers around existing tool handlers into FastMCP so we can run over HTTP.
-    Creates explicit parameter lists from each tool's JSON schema to satisfy FastMCP validation.
-    """
-    # Recreate the same handlers as in server.py
-    handlers: dict[str, tools.ToolHandler] = {
-        h.name: h
-        for h in [
-            tools.ListFilesInDirToolHandler(),
-            tools.ListFilesInVaultToolHandler(),
-            tools.GetFileContentsToolHandler(),
-            tools.SearchToolHandler(),
-            tools.PatchContentToolHandler(),
-            tools.AppendContentToolHandler(),
-            tools.PutContentToolHandler(),
-            tools.DeleteFileToolHandler(),
-            tools.ComplexSearchToolHandler(),
-            tools.BatchGetFileContentsToolHandler(),
-            tools.PeriodicNotesToolHandler(),
-            tools.RecentPeriodicNotesToolHandler(),
-            tools.RecentChangesToolHandler(),
-        ]
-    }
+@mcp.tool()
+def search(**kwargs) -> Any:
+    """Search for content in the vault."""
+    return search_handler.run_tool(kwargs)
 
-    for tool_name, handler in handlers.items():
-        # Read the tool's declared schema to build a proper signature
-        try:
-            desc = handler.get_tool_description()
-        except Exception:
-            desc = None
+@mcp.tool()
+def append_content(**kwargs) -> Any:
+    """Append content to a file."""
+    return append_handler.run_tool(kwargs)
 
-        # Try both camelCase and snake_case, and tolerate None
-        schema_obj = None
-        if desc is not None:
-            schema_obj = getattr(desc, "input_schema", None) or getattr(desc, "inputSchema", None)
+@mcp.tool()
+def patch_content(**kwargs) -> Any:
+    """Patch content in a file."""
+    return patch_handler.run_tool(kwargs)
 
-        schema = _to_schema_dict(schema_obj)
-        properties: dict[str, Any] = schema.get("properties", {}) or {}
-        required = set(schema.get("required", []) or [])
+@mcp.tool()
+def put_content(**kwargs) -> Any:
+    """Put content in a file."""
+    return put_handler.run_tool(kwargs)
 
-        # Build a function with explicit parameters matching the schema
-        namespace: dict[str, Any] = {"handler": handler}
-        arg_names = list(properties.keys())
+@mcp.tool()
+def delete_file(**kwargs) -> Any:
+    """Delete a file."""
+    return delete_handler.run_tool(kwargs)
 
-        if not arg_names:
-            # Zero-argument tool
-            src = (
-                "def _tool_func():\n"
-                "    return handler.run_tool({})\n"
-            )
+@mcp.tool()
+def complex_search(**kwargs) -> Any:
+    """Perform complex search operations."""
+    return complex_search_handler.run_tool(kwargs)
+
+@mcp.tool()
+def batch_get_file_contents(**kwargs) -> Any:
+    """Get contents of multiple files."""
+    return batch_get_handler.run_tool(kwargs)
+
+@mcp.tool()
+def periodic_notes(**kwargs) -> Any:
+    """Work with periodic notes."""
+    return periodic_notes_handler.run_tool(kwargs)
+
+@mcp.tool()
+def recent_periodic_notes(**kwargs) -> Any:
+    """Get recent periodic notes."""
+    return recent_periodic_handler.run_tool(kwargs)
+
+@mcp.tool()
+def recent_changes(**kwargs) -> Any:
+    """Get recent changes in the vault."""
+    return recent_changes_handler.run_tool(kwargs)
+
+@mcp.tool()
+def greet(name: str) -> str:
+    """Greet a user by name."""
+    return f"Hello, {name}!"
+
+class Obsidian:
+    def __init__(
+        self,
+        api_key: str,
+        protocol: str = os.getenv("OBSIDIAN_PROTOCOL", "https").lower(),
+        host: str = str(os.getenv("OBSIDIAN_HOST", "127.0.0.1")),
+        port: int = int(os.getenv("OBSIDIAN_PORT", "27124")),
+        verify_ssl: bool = False,
+    ):
+        self.api_key = api_key
+
+        if protocol == "http":
+            self.protocol = "http"
         else:
-            # Build signature with required params first, then optional params with default None
-            required_params = [name for name in arg_names if name in required]
-            optional_params = [name for name in arg_names if name not in required]
+            self.protocol = "https"
 
-            sig_parts = []
-            for n in required_params:
-                sig_parts.append(f"{n}")
-            for n in optional_params:
-                sig_parts.append(f"{n}=None")
-            sig = ", ".join(sig_parts)
+        self.host = host
+        if self.host.startswith("http://"):
+            self.host = self.host[7:]
+        elif self.host.startswith("https://"):
+            self.host = self.host[8:]
+        self.port = port
+        self.verify_ssl = verify_ssl
+        self.timeout = (3, 6)
 
-            src_lines = [f"def _tool_func({sig}):",
-                         "    _args = {}"]
-            # Only include keys that are not None (so clients can omit optionals)
-            for n in arg_names:
-                src_lines.append(f"    if {n} is not None: _args['{n}'] = {n}")
-            src_lines.append("    return handler.run_tool(_args)")
-            src = "\n".join(src_lines) + "\n"
+    def get_base_url(self) -> str:
+        return f"{self.protocol}://{self.host}:{self.port}"
 
+    def _get_headers(self) -> dict:
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    def _safe_call(self, f) -> Any:
         try:
-            exec(src, namespace)
-            func = namespace["_tool_func"]
-        except Exception as e:
-            logger.error("Failed to build tool wrapper for %s: %s", tool_name, e)
-            # Fallback: a permissive single-dict-arg wrapper (clients must pass a single object)
-            def func(_args: dict[str, Any] | None = None) -> Any:  # type: ignore[no-redef]
-                return handler.run_tool(_args or {})
+            return f()
+        except requests.HTTPError as e:
+            error_data = e.response.json() if e.response.content else {}
+            code = error_data.get("errorCode", -1)
+            message = error_data.get("message", "<unknown>")
+            raise Exception(f"Error {code}: {message}")
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Request failed: {str(e)}")
 
-        # Register with FastMCP
-        mcp.tool(name=tool_name)(func)  # type: ignore[misc]
+    def list_files_in_vault(self) -> Any:
+        url = f"{self.get_base_url()}/vault/"
 
+        def call_fn():
+            response = requests.get(url, headers=self._get_headers(), verify=self.verify_ssl, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json().get("files", [])
 
-def run_streamable_http(host: str = "127.0.0.1", port: int = 7310) -> None:
-    """
-    Start the MCP server over Streamable HTTP using the official Python SDK.
-    """
+        return self._safe_call(call_fn)
+
+    def list_files_in_dir(self, dirpath: str) -> Any:
+        url = f"{self.get_base_url()}/vault/{dirpath}/"
+
+        def call_fn():
+            response = requests.get(url, headers=self._get_headers(), verify=self.verify_ssl, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json().get("files", [])
+
+        return self._safe_call(call_fn)
+
+    def get_file_contents(self, filepath: str) -> Any:
+        url = f"{self.get_base_url()}/vault/{filepath}"
+
+        def call_fn():
+            response = requests.get(url, headers=self._get_headers(), verify=self.verify_ssl, timeout=self.timeout)
+            response.raise_for_status()
+            return response.text
+
+        return self._safe_call(call_fn)
+
+    def get_batch_file_contents(self, filepaths: list[str]) -> str:
+        result = []
+        for filepath in filepaths:
+            try:
+                content = self.get_file_contents(filepath)
+                result.append(f"# {filepath}\n\n{content}\n\n---\n\n")
+            except Exception as e:
+                result.append(f"# {filepath}\n\nError reading file: {str(e)}\n\n---\n\n")
+        return "".join(result)
+
+    def search(self, query: str, context_length: int = 100) -> Any:
+        url = f"{self.get_base_url()}/search/simple/"
+        params = {"query": query, "contextLength": context_length}
+
+        def call_fn():
+            response = requests.post(url, headers=self._get_headers(), params=params, verify=self.verify_ssl, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
+
+        return self._safe_call(call_fn)
+
+    def append_content(self, filepath: str, content: str) -> Any:
+        url = f"{self.get_base_url()}/vault/{filepath}"
+
+        def call_fn():
+            response = requests.post(
+                url,
+                headers=self._get_headers() | {"Content-Type": "text/markdown"},
+                data=content,
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return None
+
+        return self._safe_call(call_fn)
+
+    def patch_content(self, filepath: str, operation: str, target_type: str, target: str, content: str) -> Any:
+        url = f"{self.get_base_url()}/vault/{filepath}"
+        headers = self._get_headers() | {
+            "Content-Type": "text/markdown",
+            "Operation": operation,
+            "Target-Type": target_type,
+            "Target": urllib.parse.quote(target),
+        }
+
+        def call_fn():
+            response = requests.patch(url, headers=headers, data=content, verify=self.verify_ssl, timeout=self.timeout)
+            response.raise_for_status()
+            return None
+
+        return self._safe_call(call_fn)
+
+    def put_content(self, filepath: str, content: str) -> Any:
+        url = f"{self.get_base_url()}/vault/{filepath}"
+
+        def call_fn():
+            response = requests.put(
+                url,
+                headers=self._get_headers() | {"Content-Type": "text/markdown"},
+                data=content,
+                verify=self.verify_ssl,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return None
+
+        return self._safe_call(call_fn)
+
+    def delete_file(self, filepath: str) -> Any:
+        url = f"{self.get_base_url()}/vault/{filepath}"
+
+        def call_fn():
+            response = requests.delete(url, headers=self._get_headers(), verify=self.verify_ssl, timeout=self.timeout)
+            response.raise_for_status()
+            return None
+
+        return self._safe_call(call_fn)
+
+    def search_json(self, query: dict) -> Any:
+        url = f"{self.get_base_url()}/search/"
+        headers = self._get_headers() | {"Content-Type": "application/vnd.olrapi.jsonlogic+json"}
+
+        def call_fn():
+            response = requests.post(url, headers=headers, json=query, verify=self.verify_ssl, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
+
+        return self._safe_call(call_fn)
+
+    def get_periodic_note(self, period: str, type: str = "content") -> Any:
+        url = f"{self.get_base_url()}/periodic/{period}/"
+
+        def call_fn():
+            headers = self._get_headers()
+            if type == "metadata":
+                headers["Accept"] = "application/vnd.olrapi.note+json"
+            response = requests.get(url, headers=headers, verify=self.verify_ssl, timeout=self.timeout)
+            response.raise_for_status()
+            return response.text
+
+        return self._safe_call(call_fn)
+
+    def get_recent_periodic_notes(self, period: str, limit: int = 5, include_content: bool = False) -> Any:
+        url = f"{self.get_base_url()}/periodic/{period}/recent"
+        params = {"limit": limit, "includeContent": include_content}
+
+        def call_fn():
+            response = requests.get(url, headers=self._get_headers(), params=params, verify=self.verify_ssl, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
+
+        return self._safe_call(call_fn)
+
+    def get_recent_changes(self, limit: int = 10, days: int = 90) -> Any:
+        query_lines = [
+            "TABLE file.mtime",
+            f"WHERE file.mtime >= date(today) - dur({days} days)",
+            "SORT file.mtime DESC",
+            f"LIMIT {limit}",
+        ]
+        dql_query = "\n".join(query_lines)
+        url = f"{self.get_base_url()}/search/"
+        headers = self._get_headers() | {"Content-Type": "application/vnd.olrapi.dataview.dql+txt"}
+
+        def call_fn():
+            response = requests.post(url, headers=headers, data=dql_query.encode("utf-8"), verify=self.verify_ssl, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
+
+        return self._safe_call(call_fn)
+
+# Instantiate Obsidian client with proper error handling
+_obs_api_key = os.getenv("OBSIDIAN_API_KEY", "")
+if not _obs_api_key:
+    logger.warning("OBSIDIAN_API_KEY environment variable not set. Some functionality may not work.")
+
+try:
+    obsidian_client = Obsidian(api_key=_obs_api_key)
+    setattr(tools, "obsidian_client", obsidian_client)
+    logger.info("Obsidian client initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize Obsidian client: {e}")
+    # Create a dummy client to prevent import errors
+    obsidian_client = None
+    setattr(tools, "obsidian_client", obsidian_client)
+
+if __name__ == "__main__":
+    # Set up logging
     logging.basicConfig(level=logging.INFO)
 
-    _ensure_env()
+    # Validate required environment variables
+    if not _obs_api_key:
+        logger.error("OBSIDIAN_API_KEY is required but not set")
+        exit(1)
 
-    mcp = FastMCP("mcp-obsidian", host=host, port=port)
-    _register_tools(mcp)
+    # Get the Starlette app and add CORS middleware
+    app = mcp.streamable_http_app()
 
-    # Run using the SDK's built-in Streamable HTTP transport.
-    # Available transports include: "stdio", "sse", "streamable-http"
-    mcp.run(transport="streamable-http")
+    # Add CORS middleware with proper header exposure for MCP session management
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Configure this more restrictively in production
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+        expose_headers=["mcp-session-id", "mcp-protocol-version"],  # Allow client to read session ID
+        max_age=86400,
+    )
+
+    # Use PORT environment variable
+    port = int(os.environ.get("PORT", 8081))
+
+    # Run the MCP server with HTTP transport using uvicorn
+    uvicorn.run(
+        app,
+        host="0.0.0.0",  # Listen on all interfaces for containerized deployment
+        port=port,
+        log_level="debug"
+    )
