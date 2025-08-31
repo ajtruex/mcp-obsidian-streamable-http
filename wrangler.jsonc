@@ -1,0 +1,8 @@
+{
+  "name": "mcp-obsidian",
+  "main": "src/mcp_obsidian/main.py",
+  "compatibility_flags": [
+    "python_workers"
+  ],
+  "compatibility_date": "2024-03-20",
+}
