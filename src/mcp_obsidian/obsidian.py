@@ -20,6 +20,10 @@ class Obsidian():
             self.protocol = 'https' # Default to https for any other value, including 'https'
 
         self.host = host
+        if self.host.startswith('http://'):
+            self.host = self.host[7:]
+        elif self.host.startswith('https://'):
+            self.host = self.host[8:]
         self.port = port
         self.verify_ssl = verify_ssl
         self.timeout = (3, 6)

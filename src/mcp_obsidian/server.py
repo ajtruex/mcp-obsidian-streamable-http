@@ -17,8 +17,6 @@ load_dotenv()
 
 from . import tools
 
-# Load environment variables
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mcp-obsidian")
@@ -29,18 +27,28 @@ if not api_key:
 
 app = Server("mcp-obsidian")
 
-tool_handlers = {}
+tool_handlers: dict[str, tools.ToolHandler] = {}
+
+
 def add_tool_handler(tool_class: tools.ToolHandler):
     global tool_handlers
-
     tool_handlers[tool_class.name] = tool_class
+
 
 def get_tool_handler(name: str) -> tools.ToolHandler | None:
     if name not in tool_handlers:
         return None
-    
     return tool_handlers[name]
 
+
+def get_tool_handlers() -> dict[str, tools.ToolHandler]:
+    """
+    Expose a copy of all registered tool handlers for other transports (e.g., FastMCP HTTP).
+    """
+    return dict(tool_handlers)
+
+
+# Register tools
 add_tool_handler(tools.ListFilesInDirToolHandler())
 add_tool_handler(tools.ListFilesInVaultToolHandler())
 add_tool_handler(tools.GetFileContentsToolHandler())
@@ -55,19 +63,18 @@ add_tool_handler(tools.PeriodicNotesToolHandler())
 add_tool_handler(tools.RecentPeriodicNotesToolHandler())
 add_tool_handler(tools.RecentChangesToolHandler())
 
+
 @app.list_tools()
 async def list_tools() -> list[Tool]:
     """List available tools."""
-
     return [th.get_tool_description() for th in tool_handlers.values()]
+
 
 @app.call_tool()
 async def call_tool(name: str, arguments: Any) -> Sequence[TextContent | ImageContent | EmbeddedResource]:
     """Handle tool calls for command line run."""
-    
     if not isinstance(arguments, dict):
         raise RuntimeError("arguments must be dictionary")
-
 
     tool_handler = get_tool_handler(name)
     if not tool_handler:
@@ -81,7 +88,6 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent | ImageCo
 
 
 async def main():
-
     # Import here to avoid issues with event loops
     from mcp.server.stdio import stdio_server
 

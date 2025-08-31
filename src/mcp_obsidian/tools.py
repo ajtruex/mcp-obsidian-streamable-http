@@ -9,7 +9,7 @@ import json
 import os
 from . import obsidian
 
-api_key = os.getenv("OBSIDIAN_API_KEY", "")
+api_key = "c5195e381349f480a07a643733311a0d7524b585478d85edb1fc3e50d078bf36"
 obsidian_host = os.getenv("OBSIDIAN_HOST", "127.0.0.1")
 
 if api_key == "":
