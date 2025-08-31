@@ -1,6 +1,6 @@
 {
   "name": "mcp-obsidian",
-  "main": "src/mcp_obsidian/main.py",
+  "main": "src/__init__.py",
   "compatibility_flags": [
     "python_workers"
   ],
