@@ -12,3 +12,6 @@ wheels/
 
 # OS metadata
 .DS_Store
+
+# Gemini
+GEMINI.md
