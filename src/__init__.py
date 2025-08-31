@@ -17,7 +17,7 @@ def main():
         default="streamable-http",
         help="Transport to use (default: streamable-http)",
     )
-    parser.add_argument("--host", default="127.0.0.1", help="HTTP host (default: 127.0.0.1)")
+    parser.add_argument("--host", default="0.0.0.0", help="HTTP host (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=7310, help="HTTP port (default: 7310)")
     args = parser.parse_args()
 

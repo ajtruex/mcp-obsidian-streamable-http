@@ -33,4 +33,4 @@ ENV TRANSPORT=http
 ENTRYPOINT []
 
 # Run the application directly using the venv Python
-CMD ["python", "src/main.py"]
+CMD ["python", "src/__init__.py"]
